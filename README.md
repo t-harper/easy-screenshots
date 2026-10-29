@@ -1,38 +1,104 @@
 # Easy Screenshots
 
-Windows 11 screenshot capture and markup, built with C# / Avalonia. Portable win-x64 application; no installer or administrator rights required.
+A lightweight screenshot and markup app for Windows 11, built with Avalonia and C#.
 
-## Run
+Press **Ctrl+Shift+4**, drag to select an area, and annotate it in a dark editor. Save a PNG or drag the finished image into a folder or another app.
 
-Run `artifacts/portable/EasyScreenshots.exe`. The portable build includes .NET and native libraries; its first launch extracts bundled native components into the user's temporary directory. Keep the executable at a stable location when using sign-in startup.
+## Features
 
-- **Ctrl+Shift+4** globally: dim the desktop, drag a region, release to open the editor. **Escape** or right-click cancels. The mouse pointer is excluded. Multiple monitors use physical pixel coordinates.
-- Left toolbar: Select/move, arrow, text, pen, highlighter, rectangle, ellipse and blur. Choose color, thickness and text/font size. Annotations remain separate objects until PNG export.
-- **V**: Select mode. Select an annotation to move it; drag its blue bottom-right corner to resize. Hold **Shift** while drawing rectangles/ellipses for squares/circles. Edit selected text in the left panel. **Delete** removes selected annotations.
-- **Ctrl+Z**, **Ctrl+Y** or **Ctrl+Shift+Z**: undo/redo.
-- **Ctrl+S**: PNG Save As. **Drag image**: drag a rendered PNG into Explorer or a compatible application. Terminal behavior depends on whether the destination accepts file drops or paths.
-- Tray menu: New capture, reopen last capture, main window, options and exit. Home's **Reopen captures** restores all retained editors. Closing windows keeps documents in memory when close-to-tray is enabled; Exit ends the app and discards editor sessions.
-- Options: close-to-tray and Windows sign-in startup. Startup defaults off. Settings are saved under `%LOCALAPPDATA%/EasyScreenshots/settings.json`; enabling startup adds a current-user Windows Run entry. Disabling it removes the entry.
+- Global capture shortcut with a dimmed selection overlay and crosshair.
+- Multi-monitor capture without the mouse pointer.
+- Arrows, text, freehand pen, highlighter, rectangles, ellipses, and blur.
+- Select, move, resize, and recolor annotations; adjust thickness and font size.
+- Undo/redo, zoom, PNG Save As, and a dedicated **Drag image** control.
+- System tray access, optional sign-in startup, and close-to-tray settings.
+- Portable, self-contained Windows x64 executable.
 
-Exported drag files remain in `%LOCALAPPDATA%/EasyScreenshots/DragExports` so receiving applications can use them after the drag completes. They are not removed automatically; remove old exports when no longer needed.
+## Build and run
 
-If the shortcut is owned by another app, Easy Screenshots displays the conflict. Release it in the other app and restart Easy Screenshots. The app runs one instance per Windows session.
-
-## Build and test
-
-Requires Windows 11 x64 and .NET SDK 9.0.320 or a compatible .NET 9 SDK. NuGet access is needed for first restore.
+Requires **Windows 11 x64** and **.NET SDK 9.0.320 or a later .NET 9 feature band**. The first build downloads dependencies from NuGet.
 
 ```powershell
+git clone https://github.com/t-harper/easy-screenshots.git
+cd easy-screenshots
 ./build.ps1 Build
-./build.ps1 Test
-./build.ps1 Publish
 ```
 
-Or open `EasyScreenshots.sln` in Visual Studio/Rider. Code is split into platform capture, Avalonia editor and a UI-independent Core. Core tests exercise history, geometry, all render tools, blur layering, invalid input and settings. Headless UI tests exercise pointer-driven editing. Native checks can be run while the app is stopped:
+Run from source:
 
 ```powershell
-$process = Start-Process ./artifacts/portable/EasyScreenshots.exe -ArgumentList '--native-smoke', "$PWD/artifacts/native-smoke.json" -Wait -PassThru
-Get-Content ./artifacts/native-smoke.json
+dotnet run --project src/EasyScreenshots
 ```
 
-The native check registers/releases the real shortcut and captures/decodes the desktop in memory; it saves only the JSON result, no screenshot. Live multi-monitor mixed-DPI selection and drag into each destination app require interactive validation. Protected video, secure desktops and HDR display color may be subject to Windows capture limitations.
+Create and run the portable executable:
+
+```powershell
+./build.ps1 Publish
+./artifacts/portable/EasyScreenshots.exe
+```
+
+The published app includes .NET and its native dependencies; users do not need to install the runtime. On first launch, bundled native libraries are extracted to a temporary directory. Exit any running copy before replacing its executable.
+
+## Capture and edit
+
+1. Launch the app, then press **Ctrl+Shift+4** from anywhere.
+2. Drag across the area to capture. Release to open the editor, or press **Escape** or right-click to cancel.
+3. Choose a tool from the left toolbar and draw on the screenshot.
+4. Switch to **Select / move** to reposition annotations. Drag the blue bottom-right handle to resize a selected annotation. Edit selected text in the left panel.
+5. Press **Ctrl+S** to save a PNG, or drag **Drag image** into a folder or an app that accepts files.
+
+Hold **Shift** while drawing rectangles or ellipses to make squares or circles.
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+Shift+4 | Start a capture globally |
+| Escape | Cancel capture or return to selection mode in the editor |
+| V | Select / move tool |
+| Delete | Delete the selected annotation |
+| Ctrl+Z | Undo |
+| Ctrl+Y or Ctrl+Shift+Z | Redo |
+| Ctrl+S | Save As PNG |
+
+Editing shortcuts apply in the editor; text fields keep their normal text-editing behavior.
+
+## Tray and settings
+
+The tray menu provides capture, options, access to the last capture, and **Exit**. **Reopen captures** in the main window restores retained editors.
+
+Close-to-tray is enabled by default. Closing an editor keeps it in memory; exiting the app discards unsaved sessions. Sign-in startup is optional and disabled by default. Keep the portable executable in a permanent location before enabling it.
+
+Settings are stored in `%LOCALAPPDATA%\EasyScreenshots\settings.json`. Sign-in startup uses the current user's Windows Run registry entry.
+
+Dragging exports a PNG to `%LOCALAPPDATA%\EasyScreenshots\DragExports`. These files remain available for receiving applications and can be removed manually when no longer needed. File-drop behavior in terminals depends on the destination application.
+
+## Tests
+
+```powershell
+./build.ps1 Test
+```
+
+Core tests cover annotation history, geometry, rendering, blur layering, arrow styling, and settings. Headless Avalonia tests cover drawing, moving, resizing, zoom, and text editing with undo/redo.
+
+For a native capture and shortcut check, exit the app first, then run:
+
+```powershell
+$app = Join-Path $PWD 'artifacts/portable/EasyScreenshots.exe'
+$report = Join-Path $PWD 'artifacts/native-smoke.json'
+Start-Process -FilePath $app -ArgumentList @('--native-smoke', "`"$report`"") -Wait
+Get-Content $report
+```
+
+The native check captures the desktop in memory and writes only a JSON report. Multi-monitor selection with different display scaling and drag-out into individual applications also need interactive testing.
+
+## Troubleshooting
+
+- **Shortcut unavailable:** another app may own Ctrl+Shift+4. Release the shortcut there and restart Easy Screenshots.
+- **App already running:** only one instance runs per Windows session. Open it from the tray.
+- **Cannot overwrite the executable:** exit the running app from the tray before publishing or replacing it.
+- **Capture differs from the display:** protected content, secure desktops, and HDR can be subject to Windows capture limitations.
+
+## License
+
+[MIT](LICENSE). Use, modify, redistribute, or sell the software; retain the copyright and license notice. Third-party dependencies retain their respective licenses.
