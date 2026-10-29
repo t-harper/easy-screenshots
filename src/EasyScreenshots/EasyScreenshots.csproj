@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net9.0-windows</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><ApplicationManifest>app.manifest</ApplicationManifest><AssemblyName>EasyScreenshots</AssemblyName></PropertyGroup>
+  <ItemGroup><PackageReference Include="Avalonia.Desktop" Version="11.3.19" /><PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.19" /><ProjectReference Include="../EasyScreenshots.Core/EasyScreenshots.Core.csproj" /></ItemGroup>
+</Project>

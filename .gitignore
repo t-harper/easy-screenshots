@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+TestResults/
+.packages/
+.local/
+.dotnet/

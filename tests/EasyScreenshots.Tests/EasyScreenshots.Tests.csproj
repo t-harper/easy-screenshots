@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0"/><PackageReference Include="xunit" Version="2.7.0"/><PackageReference Include="xunit.runner.visualstudio" Version="2.5.7"/><ProjectReference Include="../../src/EasyScreenshots.Core/EasyScreenshots.Core.csproj"/></ItemGroup>
+</Project>
