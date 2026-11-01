@@ -28,7 +28,7 @@ public sealed class App : Application
     private readonly List<Window> _editors = [];
     private bool _capturing;
     private bool _exiting;
-    private string _hotkeyStatus = "Ctrl+Shift+4 — capture anywhere";
+    private string _hotkeyStatus = "Ctrl+Shift+4 or Win+Shift+4 — capture anywhere";
 
     public override void Initialize()
     {
@@ -69,7 +69,7 @@ public sealed class App : Application
         using var encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
         using var stream = new MemoryStream(encoded.ToArray());
         var menu = new NativeMenu();
-        var capture = new NativeMenuItem("New capture  ·  Ctrl+Shift+4");
+        var capture = new NativeMenuItem("New capture  ·  Ctrl+Shift+4 / Win+Shift+4");
         capture.Click += (_, _) => _ = CaptureAsync();
         var open = new NativeMenuItem("Open Easy Screenshots");
         open.Click += (_, _) => ShowHome();
@@ -80,7 +80,7 @@ public sealed class App : Application
         var last = new NativeMenuItem("Reopen last capture");
         last.Click += (_, _) => { if (_editors.LastOrDefault() is { } editor) { editor.Show(); editor.Activate(); } };
         menu.Items.Add(capture); menu.Items.Add(open); menu.Items.Add(last); menu.Items.Add(options); menu.Items.Add(new NativeMenuItemSeparator()); menu.Items.Add(exit);
-        _tray = new TrayIcon { Icon = new WindowIcon(stream), ToolTipText = "Easy Screenshots · Ctrl+Shift+4", Menu = menu, IsVisible = true };
+        _tray = new TrayIcon { Icon = new WindowIcon(stream), ToolTipText = "Easy Screenshots · Ctrl+Shift+4 / Win+Shift+4", Menu = menu, IsVisible = true };
         _tray.Clicked += (_, _) => ShowHome();
         TrayIcon.SetIcons(this, new TrayIcons { _tray });
     }
@@ -152,7 +152,7 @@ public sealed class App : Application
         var panel = new StackPanel { Margin = new Thickness(26), Spacing = 18 };
         panel.Children.Add(new TextBlock { Text = "Options", FontSize = 24, FontWeight = FontWeight.SemiBold });
         panel.Children.Add(tray); panel.Children.Add(startup);
-        panel.Children.Add(new TextBlock { Text = "Global capture: Ctrl+Shift+4\nKeep the portable app in a permanent location if you enable sign-in startup.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray });
+        panel.Children.Add(new TextBlock { Text = "Global capture: Ctrl+Shift+4 or Win+Shift+4\nWin+Shift+4 replaces the taskbar shortcut while this app runs.\nKeep the portable app in a permanent location if you enable sign-in startup.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray });
         panel.Children.Add(save); panel.Children.Add(status);
         save.Click += (_, _) =>
         {

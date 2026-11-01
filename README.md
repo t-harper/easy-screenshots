@@ -2,7 +2,7 @@
 
 A lightweight screenshot and markup app for Windows 11, built with Avalonia and C#.
 
-Press **Ctrl+Shift+4**, drag to select an area, and annotate it in a dark editor. Save a PNG or drag the finished image into a folder or another app.
+Press **Ctrl+Shift+4** or **Win+Shift+4**, drag to select an area, and annotate it in a dark editor. Save a PNG or drag the finished image into a folder or another app.
 
 ## Features
 
@@ -47,7 +47,7 @@ The published app includes .NET and its native dependencies; users do not need t
 
 ## Capture and edit
 
-1. Launch the app, then press **Ctrl+Shift+4** from anywhere.
+1. Launch the app, then press **Ctrl+Shift+4** or **Win+Shift+4** from anywhere.
 2. Drag across the area to capture. Release to open the editor, or press **Escape** or right-click to cancel.
 3. Choose a tool from the left toolbar and draw on the screenshot.
 4. Switch to **Select / move** to reposition annotations. Drag the blue bottom-right handle to resize a selected annotation. Edit selected text in the left panel.
@@ -60,6 +60,7 @@ Hold **Shift** while drawing rectangles or ellipses to make squares or circles.
 | Shortcut | Action |
 | --- | --- |
 | Ctrl+Shift+4 | Start a capture globally |
+| Win+Shift+4 | Start a capture globally; overrides the taskbar shortcut while the app runs |
 | Escape | Cancel capture or return to selection mode in the editor |
 | V | Select / move tool |
 | Delete | Delete the selected annotation |
