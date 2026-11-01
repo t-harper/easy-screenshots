@@ -30,6 +30,9 @@ public sealed class App : Application
     private readonly List<Window> _editors = [];
     private bool _capturing;
     private bool _exiting;
+    private bool _discardingCaptures;
+    private DispatcherTimer? _cleanupTimer;
+    private readonly SemaphoreSlim _cleanupGate = new(1, 1);
     private string _hotkeyStatus = "Ctrl+Shift+4 or Win+Shift+4 — capture anywhere";
 
     public override void Initialize()
@@ -49,10 +52,14 @@ public sealed class App : Application
             _desktop = desktop;
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             _settings = SettingsStore.Load(_settingsPath);
+            _ = CleanupDragExportsAsync();
+            _cleanupTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
+            _cleanupTimer.Tick += (_, _) => _ = CleanupDragExportsAsync();
+            _cleanupTimer.Start();
             try { _hotkey = new GlobalHotkey(() => _ = CaptureAsync()); }
             catch (Exception ex) { _hotkeyStatus = "Shortcut unavailable: " + ex.Message; }
             SetupTray();
-            desktop.Exit += (_, _) => { _hotkey?.Dispose(); _tray?.Dispose(); };
+            desktop.Exit += (_, _) => { _cleanupTimer?.Stop(); _hotkey?.Dispose(); _tray?.Dispose(); };
             if (desktop.Args?.Contains("--background") != true || _hotkey is null) ShowHome();
         }
         base.OnFrameworkInitializationCompleted();
@@ -140,7 +147,7 @@ public sealed class App : Application
     {
         window.Closing += (_, e) =>
         {
-            if (_exiting) return;
+            if (_exiting || _discardingCaptures) return;
             if (_settings.CloseToTray) { e.Cancel = true; window.Hide(); }
             else if (_desktop.Windows.Count(w => w.IsVisible && w != window) == 0) Exit();
         };
@@ -159,7 +166,7 @@ public sealed class App : Application
                     if (!_editors.Contains(editor)) throw new InvalidOperationException("This capture is no longer open.");
                     editor.Show(); editor.Activate();
                 })).ToArray();
-            var picker = new CapturePickerWindow(items);
+            var picker = new CapturePickerWindow(items, ClearCaptures);
             _capturePicker = picker;
             picker.Closed += (_, _) =>
             {
@@ -176,27 +183,62 @@ public sealed class App : Application
         if (_options is not null) { _options.Show(); _options.Activate(); return; }
         var tray = new CheckBox { Content = "Keep running in tray when windows close", IsChecked = _settings.CloseToTray };
         var startup = new CheckBox { Content = "Start at Windows sign-in", IsChecked = _settings.StartAtLogin };
+        var retention = new NumericUpDown { Minimum = 0, Maximum = 3650, Increment = 1,
+            FormatString = "0", Value = _settings.DragExportRetentionDays, Width = 140,
+            HorizontalAlignment = HorizontalAlignment.Left };
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightGray };
         var save = new Button { Content = "Save options" };
         var panel = new StackPanel { Margin = new Thickness(26), Spacing = 18 };
         panel.Children.Add(new TextBlock { Text = "Options", FontSize = 24, FontWeight = FontWeight.SemiBold });
         panel.Children.Add(tray); panel.Children.Add(startup);
+        panel.Children.Add(new TextBlock { Text = "Keep drag exports for (days)", FontWeight = FontWeight.SemiBold });
+        panel.Children.Add(retention);
+        panel.Children.Add(new TextBlock { Text = "0 keeps exports forever. Cleanup runs at startup, hourly, and when options are saved. Only old app-generated drag exports are removed; manually saved screenshots are left alone.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray });
         panel.Children.Add(new TextBlock { Text = "Global capture: Ctrl+Shift+4 or Win+Shift+4\nWin+Shift+4 replaces the taskbar shortcut while this app runs.\nKeep the portable app in a permanent location if you enable sign-in startup.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray });
         panel.Children.Add(save); panel.Children.Add(status);
-        save.Click += (_, _) =>
+        save.Click += async (_, _) =>
         {
+            save.IsEnabled = false;
             try
             {
-                var next = new AppSettings(tray.IsChecked == true, startup.IsChecked == true);
+                if (retention.Value is not { } days || days != decimal.Truncate(days))
+                    throw new InvalidOperationException("Enter a whole number of days from 0 to 3650.");
+                var next = new AppSettings(tray.IsChecked == true, startup.IsChecked == true, (int)days);
                 SetStartup(next.StartAtLogin);
                 SettingsStore.Save(_settingsPath, next); _settings = next;
-                status.Text = "Options saved.";
+                var result = await CleanupDragExportsAsync();
+                status.Text = $"Options saved. Removed {result.DeletedCount} expired drag export(s)." +
+                    (result.FailedCount > 0 ? $" {result.FailedCount} file(s) could not be removed; cleanup will retry later." : "");
             }
             catch (Exception ex) { status.Text = "Could not save options: " + ex.Message; }
+            finally { save.IsEnabled = true; }
         };
-        _options = new Window { Title = "Easy Screenshots · Options", Width = 490, Height = 430, Content = new ScrollViewer { Content = panel }, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        _options = new Window { Title = "Easy Screenshots · Options", Width = 520, Height = 650, Content = new ScrollViewer { Content = panel }, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterScreen };
         _options.Closed += (_, _) => _options = null;
         AttachLifetime(_options); _options.Show();
+    }
+
+    private void ClearCaptures()
+    {
+        _discardingCaptures = true;
+        try { foreach (var editor in _editors.ToArray()) editor.Close(); }
+        finally { _discardingCaptures = false; }
+    }
+
+    private async Task<CleanupResult> CleanupDragExportsAsync()
+    {
+        await _cleanupGate.WaitAsync();
+        try
+        {
+            var days = _settings.DragExportRetentionDays;
+            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EasyScreenshots", "DragExports");
+            return await Task.Run(() => DragExportCleanup.Run(directory, days, DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new CleanupResult(0, 1);
+        }
+        finally { _cleanupGate.Release(); }
     }
 
     private static void SetStartup(bool enabled)

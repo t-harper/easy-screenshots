@@ -78,7 +78,9 @@ Close-to-tray is enabled by default. Closing an editor keeps it in memory; exiti
 
 Settings are stored in `%LOCALAPPDATA%\EasyScreenshots\settings.json`. Sign-in startup uses the current user's Windows Run registry entry.
 
-Dragging exports a PNG to `%LOCALAPPDATA%\EasyScreenshots\DragExports`. These files remain available for receiving applications and can be removed manually when no longer needed. File-drop behavior in terminals depends on the destination application.
+Dragging exports a PNG to `%LOCALAPPDATA%\EasyScreenshots\DragExports`. **Options → Keep drag exports for (days)** controls automatic cleanup: the default is 30 days, and 0 disables it. Cleanup runs at startup, hourly, and when options are saved. It removes only expired app-generated exports directly inside that folder, without scanning subfolders. Manually saved screenshots are left alone. File-drop behavior in terminals depends on the destination application.
+
+**Clear captures** in the thumbnail picker discards all retained editor sessions after confirmation, including unsaved annotations. It frees their image data without deleting saved PNGs or drag exports.
 
 ## Tests
 

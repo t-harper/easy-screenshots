@@ -23,6 +23,7 @@ public sealed class CapturePickerTests
     }
 
     private static Button[] Cards(Window window) => window.GetVisualDescendants().OfType<Button>().Where(b => b.Tag is string).ToArray();
+    private static Button ButtonNamed(Window window, string label) => Assert.Single(window.GetVisualDescendants().OfType<Button>().Where(b => Equals(b.Content, label)));
     private static void Click(Window window, Button button)
     {
         var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
@@ -99,5 +100,74 @@ public sealed class CapturePickerTests
             Assert.Contains(picker.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("Capture is unavailable") == true);
         }
         finally { picker.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Clear_requires_confirmation_and_cancel_or_escape_preserves_captures()
+    {
+        var cleared = 0;
+        var picker = new CapturePickerWindow([new("one", "Capture", DateTimeOffset.Now, 100, 100, Thumbnail(), () => { })], () => cleared++);
+        picker.Show();
+        try
+        {
+            Click(picker, ButtonNamed(picker, "Clear captures"));
+            Assert.Equal(0, cleared);
+            Assert.Contains(picker.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Discard all captures and unsaved edits? Saved PNGs and drag exports will not be deleted.");
+            Click(picker, ButtonNamed(picker, "Cancel"));
+            Assert.Equal(0, cleared); Assert.Single(Cards(picker));
+            Click(picker, ButtonNamed(picker, "Clear captures"));
+            picker.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            picker.KeyReleaseQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            Assert.True(picker.IsVisible);
+            Assert.Equal(0, cleared); Assert.Single(Cards(picker));
+        }
+        finally { picker.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Confirm_clear_calls_action_once_removes_thumbnails_and_disables_clear()
+    {
+        var cleared = 0;
+        var picker = new CapturePickerWindow([new("one", "Capture", DateTimeOffset.Now, 100, 100, Thumbnail(), () => { })], () => cleared++);
+        picker.Show();
+        try
+        {
+            Click(picker, ButtonNamed(picker, "Clear captures"));
+            Click(picker, ButtonNamed(picker, "Discard captures"));
+            Assert.Equal(1, cleared); Assert.True(picker.IsVisible);
+            Assert.Empty(Cards(picker));
+            Assert.Empty(picker.GetVisualDescendants().OfType<Image>());
+            Assert.False(ButtonNamed(picker, "Clear captures").IsEnabled);
+            Assert.Contains(picker.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "No captures yet");
+        }
+        finally { picker.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Clear_failure_shows_error_and_preserves_cards()
+    {
+        var picker = new CapturePickerWindow([new("one", "Capture", DateTimeOffset.Now, 100, 100, Thumbnail(), () => { })], () => throw new InvalidOperationException("Could not discard"));
+        picker.Show();
+        try
+        {
+            Click(picker, ButtonNamed(picker, "Clear captures"));
+            Click(picker, ButtonNamed(picker, "Discard captures"));
+            Assert.True(picker.IsVisible); Assert.Single(Cards(picker));
+            Assert.Contains(picker.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("Could not discard") == true);
+        }
+        finally { picker.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Clear_is_disabled_when_empty_or_callback_is_unavailable()
+    {
+        var empty = new CapturePickerWindow([], () => { });
+        empty.Show();
+        try { Assert.False(ButtonNamed(empty, "Clear captures").IsEnabled); }
+        finally { empty.Close(); }
+        var unavailable = new CapturePickerWindow([new("one", "Capture", DateTimeOffset.Now, 100, 100, Thumbnail(), () => { })]);
+        unavailable.Show();
+        try { Assert.False(ButtonNamed(unavailable, "Clear captures").IsEnabled); }
+        finally { unavailable.Close(); }
     }
 }
