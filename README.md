@@ -16,6 +16,12 @@ Press **Ctrl+Shift+4**, drag to select an area, and annotate it in a dark editor
 
 ## Build and run
 
+### Download
+
+Download [EasyScreenshots.exe for Windows 11 x64](https://github.com/t-harper/easy-screenshots/releases/latest/download/EasyScreenshots.exe), then run it. No installer or .NET installation is needed. Release assets also include license notices and a SHA-256 checksum.
+
+### Build from source
+
 Requires **Windows 11 x64** and **.NET SDK 9.0.320 or a later .NET 9 feature band**. The first build downloads dependencies from NuGet.
 
 ```powershell
