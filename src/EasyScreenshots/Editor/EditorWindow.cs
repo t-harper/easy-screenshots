@@ -21,6 +21,13 @@ public sealed class EditorWindow : Window
     private readonly Button _undo;
     private readonly Button _redo;
     private bool _syncing;
+    private byte[]? _thumbnailPng;
+    public DateTimeOffset CapturedAt { get; } = DateTimeOffset.Now;
+    public string CaptureName { get; set; } = "Capture";
+    public int CaptureWidth => _document.Width;
+    public int CaptureHeight => _document.Height;
+
+    public byte[] GetThumbnailPng() => _thumbnailPng ??= ImageRenderer.RenderThumbnailPng(_document);
 
     public EditorWindow(byte[] png, Action requestCapture, Action requestOptions)
     {
@@ -91,7 +98,7 @@ public sealed class EditorWindow : Window
         Content = root;
         _surface.SelectionChanged += SyncSelection;
         _surface.Error += message => _status.Text = message;
-        _document.Changed += (_, _) => { _undo.IsEnabled = _document.CanUndo; _redo.IsEnabled = _document.CanRedo; };
+        _document.Changed += (_, _) => { _thumbnailPng = null; _undo.IsEnabled = _document.CanUndo; _redo.IsEnabled = _document.CanRedo; };
         _undo.IsEnabled = _redo.IsEnabled = false;
         _thickness.PropertyChanged += (_, e) => { if (e.Property == Slider.ValueProperty) { _surface.Thickness = _thickness.Value; if (!_syncing) _surface.UpdateSelected(a => a with { Thickness = _thickness.Value }); } };
         _font.PropertyChanged += (_, e) => { if (e.Property == Slider.ValueProperty) { _surface.FontSize = _font.Value; if (!_syncing) _surface.UpdateSelected(a => a with { FontSize = _font.Value }); } };

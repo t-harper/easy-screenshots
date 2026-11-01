@@ -72,7 +72,7 @@ Editing shortcuts apply in the editor; text fields keep their normal text-editin
 
 ## Tray and settings
 
-The tray menu provides capture, options, access to the last capture, and **Exit**. **Reopen captures** in the main window restores retained editors.
+The tray menu provides capture, options, **Reopen captures**, and **Exit**. **Reopen captures** opens a thumbnail picker in newest-first order. Each card shows the current annotated image, capture time, and dimensions. Select a card to reopen only that editor, preserving its annotations and undo history. The picker lists captures retained in the current app session; it does not scan saved files or restore sessions after exit.
 
 Close-to-tray is enabled by default. Closing an editor keeps it in memory; exiting the app discards unsaved sessions. Sign-in startup is optional and disabled by default. Keep the portable executable in a permanent location before enabling it.
 

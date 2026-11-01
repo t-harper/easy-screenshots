@@ -25,6 +25,8 @@ public sealed class App : Application
     private TrayIcon? _tray;
     private Window? _home;
     private Window? _options;
+    private Window? _capturePicker;
+    private int _captureNumber;
     private readonly List<Window> _editors = [];
     private bool _capturing;
     private bool _exiting;
@@ -77,8 +79,8 @@ public sealed class App : Application
         options.Click += (_, _) => ShowOptions();
         var exit = new NativeMenuItem("Exit");
         exit.Click += (_, _) => Exit();
-        var last = new NativeMenuItem("Reopen last capture");
-        last.Click += (_, _) => { if (_editors.LastOrDefault() is { } editor) { editor.Show(); editor.Activate(); } };
+        var last = new NativeMenuItem("Reopen captures…");
+        last.Click += (_, _) => ShowCapturePicker();
         menu.Items.Add(capture); menu.Items.Add(open); menu.Items.Add(last); menu.Items.Add(options); menu.Items.Add(new NativeMenuItemSeparator()); menu.Items.Add(exit);
         _tray = new TrayIcon { Icon = new WindowIcon(stream), ToolTipText = "Easy Screenshots · Ctrl+Shift+4 / Win+Shift+4", Menu = menu, IsVisible = true };
         _tray.Clicked += (_, _) => ShowHome();
@@ -96,7 +98,7 @@ public sealed class App : Application
         button.Click += (_, _) => _ = CaptureAsync(); stack.Children.Add(button);
         var options = new Button { Content = "Options" }; options.Click += (_, _) => ShowOptions(); stack.Children.Add(options);
         var captures = new Button { Content = "Reopen captures" };
-        captures.Click += (_, _) => { foreach (var editor in _editors) editor.Show(); _editors.LastOrDefault()?.Activate(); };
+        captures.Click += (_, _) => ShowCapturePicker();
         stack.Children.Add(captures);
         stack.Children.Add(new TextBlock { Text = "Drag to select · Escape to cancel\nEdit with arrows, text, shapes, pen and blur.\nCtrl+S to save · Drag image to share a PNG.", Foreground = Brushes.Gray, LineHeight = 24 });
         _home = new Window { Title = "Easy Screenshots", Width = 500, Height = 580, CanResize = false, Content = new ScrollViewer { Content = stack }, WindowStartupLocation = WindowStartupLocation.CenterScreen };
@@ -107,7 +109,7 @@ public sealed class App : Application
     {
         if (_capturing) return;
         _capturing = true;
-        var visible = _editors.Append(_home).Append(_options).Where(w => w?.IsVisible == true).Cast<Window>().ToArray();
+        var visible = _editors.Append(_home).Append(_options).Append(_capturePicker).Where(w => w?.IsVisible == true).Cast<Window>().ToArray();
         foreach (var window in visible) window.Hide();
         try
         {
@@ -119,8 +121,11 @@ public sealed class App : Application
             if (png is not null)
             {
                 var editor = new EditorWindow(png, () => _ = CaptureAsync(), ShowOptions);
+                editor.CaptureName = $"Capture {++_captureNumber}";
+                editor.Title = $"Easy Screenshots · {editor.CaptureName}";
                 _editors.Add(editor); editor.Closed += (_, _) => _editors.Remove(editor);
                 AttachLifetime(editor); editor.Show(); editor.Activate();
+                _capturePicker?.Close();
             }
         }
         catch (Exception ex)
@@ -140,6 +145,30 @@ public sealed class App : Application
             else if (_desktop.Windows.Count(w => w.IsVisible && w != window) == 0) Exit();
         };
         window.Closed += (_, _) => { if (window == _home) _home = null; };
+    }
+
+    private void ShowCapturePicker()
+    {
+        if (_capturePicker is not null) { _capturePicker.Show(); _capturePicker.Activate(); return; }
+        try
+        {
+            var items = _editors.OfType<EditorWindow>().Select(editor => new CapturePickerItem(
+                editor.CaptureName, editor.CaptureName, editor.CapturedAt,
+                editor.CaptureWidth, editor.CaptureHeight, editor.GetThumbnailPng(), () =>
+                {
+                    if (!_editors.Contains(editor)) throw new InvalidOperationException("This capture is no longer open.");
+                    editor.Show(); editor.Activate();
+                })).ToArray();
+            var picker = new CapturePickerWindow(items);
+            _capturePicker = picker;
+            picker.Closed += (_, _) =>
+            {
+                _capturePicker = null;
+                if (!_exiting && !_settings.CloseToTray && !_desktop.Windows.Any(w => w.IsVisible)) ShowHome();
+            };
+            picker.Show(); picker.Activate();
+        }
+        catch (Exception ex) { ShowMessage("Could not open captures", ex.Message); }
     }
 
     private void ShowOptions()

@@ -4,6 +4,29 @@ namespace EasyScreenshots.Core;
 
 public static class ImageRenderer
 {
+    /// <summary>Renders the current composite inside the requested bounds without enlarging it.</summary>
+    public static byte[] RenderThumbnailPng(EditorDocument document, int maxWidth = 280, int maxHeight = 170)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxHeight);
+        var scale = Math.Min(1, Math.Min((double)maxWidth / document.Width, (double)maxHeight / document.Height));
+        var width = Math.Clamp((int)Math.Round(document.Width * scale), 1, maxWidth);
+        var height = Math.Clamp((int)Math.Round(document.Height * scale), 1, maxHeight);
+        using var composite = RenderBitmap(document);
+        using var thumbnail = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using (var canvas = new SKCanvas(thumbnail))
+        using (var paint = new SKPaint { FilterQuality = SKFilterQuality.High, IsAntialias = true })
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawBitmap(composite, new SKRect(0, 0, width, height), paint);
+            canvas.Flush();
+        }
+        using var image = SKImage.FromBitmap(thumbnail);
+        using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+        return encoded.ToArray();
+    }
+
     public static byte[] RenderPng(EditorDocument document)
     {
         using var bitmap = RenderBitmap(document);
