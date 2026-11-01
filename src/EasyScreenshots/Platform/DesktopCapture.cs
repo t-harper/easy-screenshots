@@ -4,7 +4,60 @@ using SkiaSharp;
 
 namespace EasyScreenshots.Platform;
 
-public sealed record DesktopSnapshot(byte[] Png, int X, int Y, int Width, int Height);
+/// <summary>A top-down, opaque BGRA desktop frame. PNG encoding is deferred until export.</summary>
+public sealed class DesktopSnapshot : IDisposable
+{
+    private byte[]? _pixels;
+    public int X { get; }
+    public int Y { get; }
+    public int Width { get; }
+    public int Height { get; }
+    public int RowBytes => checked(Width * 4);
+
+    public DesktopSnapshot(byte[] bgraPixels, int x, int y, int width, int height)
+    {
+        ArgumentNullException.ThrowIfNull(bgraPixels);
+        if (width <= 0 || height <= 0 || bgraPixels.Length != checked(width * height * 4))
+            throw new ArgumentException("The buffer must contain one BGRA pixel per desktop pixel.", nameof(bgraPixels));
+        _pixels = bgraPixels;
+        X = x; Y = y; Width = width; Height = height;
+    }
+
+    // Compatibility for diagnostics. The interactive capture path never encodes the whole desktop.
+    public byte[] Png => CropPng(X, Y, Width, Height);
+
+    public void CopyPixelsTo(IntPtr destination, int rowBytes)
+    {
+        var pixels = _pixels ?? throw new ObjectDisposedException(nameof(DesktopSnapshot));
+        if (destination == IntPtr.Zero) throw new ArgumentException("A destination buffer is required.", nameof(destination));
+        if (rowBytes < RowBytes) throw new ArgumentOutOfRangeException(nameof(rowBytes));
+        if (rowBytes == RowBytes)
+            Marshal.Copy(pixels, 0, destination, pixels.Length);
+        else
+            for (var row = 0; row < Height; row++)
+                Marshal.Copy(pixels, row * RowBytes, IntPtr.Add(destination, checked(row * rowBytes)), RowBytes);
+    }
+
+    public byte[] CropPng(int x, int y, int width, int height)
+    {
+        var pixels = _pixels ?? throw new ObjectDisposedException(nameof(DesktopSnapshot));
+        if (width <= 0 || height <= 0) throw new ArgumentOutOfRangeException(nameof(width));
+        var left = (int)Math.Clamp((long)x - X, 0, Width);
+        var top = (int)Math.Clamp((long)y - Y, 0, Height);
+        var right = (int)Math.Clamp((long)x + width - X, 0, Width);
+        var bottom = (int)Math.Clamp((long)y + height - Y, 0, Height);
+        if (right <= left || bottom <= top) throw new ArgumentOutOfRangeException(nameof(x), "Selection does not intersect the desktop.");
+        using var crop = new SKBitmap(right - left, bottom - top, SKColorType.Bgra8888, SKAlphaType.Opaque);
+        for (var row = 0; row < crop.Height; row++)
+            Marshal.Copy(pixels, checked((top + row) * RowBytes + left * 4),
+                IntPtr.Add(crop.GetPixels(), checked(row * crop.RowBytes)), checked(crop.Width * 4));
+        using var image = SKImage.FromBitmap(crop);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        return png.ToArray();
+    }
+
+    public void Dispose() => _pixels = null;
+}
 
 public static class DesktopCapture
 {
@@ -33,15 +86,11 @@ public static class DesktopCapture
             // SRCCOPY | CAPTUREBLT captures layered windows, but never draws the cursor.
             if (!BitBlt(memoryDc, 0, 0, width, height, screenDc, x, y, 0x40CC0020))
                 throw Error("Windows could not capture the desktop.");
-            using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque));
             var bytes = new byte[checked(width * height * 4)];
             Marshal.Copy(pixels, bytes, 0, bytes.Length);
             // GDI's reserved alpha byte is undefined. PNG must be fully opaque.
             for (var i = 3; i < bytes.Length; i += 4) bytes[i] = 255;
-            Marshal.Copy(bytes, 0, bitmap.GetPixels(), bytes.Length);
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            return new DesktopSnapshot(data.ToArray(), x, y, width, height);
+            return new DesktopSnapshot(bytes, x, y, width, height);
         }
         finally
         {

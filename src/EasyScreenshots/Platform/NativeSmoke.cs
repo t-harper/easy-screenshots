@@ -40,8 +40,9 @@ public static class NativeSmoke
                 }
                 if (!rejected) throw new InvalidOperationException("Duplicate shortcut registration unexpectedly succeeded.");
                 checks["duplicateRejected"] = true;
-                var snapshot = DesktopCapture.Capture();
-                using var decoded = SKBitmap.Decode(snapshot.Png)
+                using var snapshot = DesktopCapture.Capture();
+                var capturedPng = snapshot.Png;
+                using var decoded = SKBitmap.Decode(capturedPng)
                     ?? throw new InvalidOperationException("Captured PNG could not be decoded.");
                 if (decoded.Width != snapshot.Width || decoded.Height != snapshot.Height)
                     throw new InvalidOperationException("Captured PNG size does not match native desktop bounds.");
@@ -50,7 +51,7 @@ public static class NativeSmoke
                 checks["capture"] = new
                 {
                     snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height,
-                    pngBytes = snapshot.Png.Length,
+                    pngBytes = capturedPng.Length,
                     decoded = true,
                     opaque = true
                 };

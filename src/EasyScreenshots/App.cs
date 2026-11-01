@@ -12,6 +12,7 @@ using EasyScreenshots.Editor;
 using EasyScreenshots.Platform;
 using Microsoft.Win32;
 using SkiaSharp;
+using System.Runtime.InteropServices;
 
 namespace EasyScreenshots;
 
@@ -46,7 +47,7 @@ public sealed class App : Application
             _desktop = desktop;
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             _settings = SettingsStore.Load(_settingsPath);
-            try { _hotkey = new GlobalHotkey(() => Dispatcher.UIThread.Post(() => _ = CaptureAsync())); }
+            try { _hotkey = new GlobalHotkey(() => _ = CaptureAsync()); }
             catch (Exception ex) { _hotkeyStatus = "Shortcut unavailable: " + ex.Message; }
             SetupTray();
             desktop.Exit += (_, _) => { _hotkey?.Dispose(); _tray?.Dispose(); };
@@ -110,8 +111,9 @@ public sealed class App : Application
         foreach (var window in visible) window.Hide();
         try
         {
-            // Give DWM a frame to remove our windows before freezing the desktop.
-            await Task.Delay(120);
+            // Wait for the compositor only if we actually hid a window. The tray
+            // shortcut needs no artificial delay before freezing the desktop.
+            if (visible.Length > 0) DwmFlush();
             var png = await new CaptureCoordinator().CaptureAsync();
             foreach (var window in visible) window.Show();
             if (png is not null)
@@ -188,4 +190,6 @@ public sealed class App : Application
     }
 
     private void Exit() { _exiting = true; _desktop.Shutdown(); }
+
+    [DllImport("dwmapi.dll")] private static extern int DwmFlush();
 }

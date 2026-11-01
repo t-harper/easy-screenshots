@@ -5,9 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using EasyScreenshots.Platform;
-using SkiaSharp;
 
 namespace EasyScreenshots.Capture;
 
@@ -25,8 +25,10 @@ public sealed class CaptureCoordinator
         DispatcherTimer? timer = null;
         try
         {
-            var snapshot = DesktopCapture.Capture();
-            using var bitmap = new Bitmap(new MemoryStream(snapshot.Png));
+            using var snapshot = DesktopCapture.Capture();
+            using var bitmap = new WriteableBitmap(new PixelSize(snapshot.Width, snapshot.Height),
+                new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+            using (var buffer = bitmap.Lock()) snapshot.CopyPixelsTo(buffer.Address, buffer.RowBytes);
             var state = new SelectionState();
             var completion = new TaskCompletionSource<PixelRect?>(TaskCreationOptions.RunContinuationsAsynchronously);
             foreach (var monitor in Monitors())
@@ -77,18 +79,7 @@ public sealed class CaptureCoordinator
             timer.Stop();
             foreach (var overlay in overlays) overlay.Close();
             if (chosen is not { } bounds) return null;
-            var left = Math.Clamp(bounds.X - snapshot.X, 0, snapshot.Width);
-            var top = Math.Clamp(bounds.Y - snapshot.Y, 0, snapshot.Height);
-            var right = Math.Clamp(bounds.Right - snapshot.X, 0, snapshot.Width);
-            var bottom = Math.Clamp(bounds.Bottom - snapshot.Y, 0, snapshot.Height);
-            if (right <= left || bottom <= top) return null;
-            using var original = SKBitmap.Decode(snapshot.Png);
-            using var crop = new SKBitmap(right - left, bottom - top, SKColorType.Bgra8888, SKAlphaType.Opaque);
-            using (var canvas = new SKCanvas(crop))
-                canvas.DrawBitmap(original, new SKRect(left, top, right, bottom), new SKRect(0, 0, crop.Width, crop.Height));
-            using var image = SKImage.FromBitmap(crop);
-            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
-            return png.ToArray();
+            return snapshot.CropPng(bounds.X, bounds.Y, bounds.Width, bounds.Height);
         }
         finally
         {
