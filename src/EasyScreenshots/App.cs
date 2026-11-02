@@ -67,16 +67,6 @@ public sealed class App : Application
 
     private void SetupTray()
     {
-        using var bitmap = new SKBitmap(32, 32);
-        using (var canvas = new SKCanvas(bitmap))
-        {
-            canvas.Clear(new SKColor(20, 24, 35));
-            using var paint = new SKPaint { Color = new SKColor(100, 175, 255), Style = SKPaintStyle.Stroke, StrokeWidth = 3, IsAntialias = true };
-            canvas.DrawRoundRect(new SKRect(5, 8, 27, 25), 3, 3, paint);
-            canvas.DrawCircle(16, 16, 5, paint);
-        }
-        using var encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = new MemoryStream(encoded.ToArray());
         var menu = new NativeMenu();
         var capture = new NativeMenuItem("New capture  ·  Ctrl+Shift+4 / Win+Shift+4");
         capture.Click += (_, _) => _ = CaptureAsync();
@@ -89,7 +79,7 @@ public sealed class App : Application
         var last = new NativeMenuItem("Reopen captures…");
         last.Click += (_, _) => ShowCapturePicker();
         menu.Items.Add(capture); menu.Items.Add(open); menu.Items.Add(last); menu.Items.Add(options); menu.Items.Add(new NativeMenuItemSeparator()); menu.Items.Add(exit);
-        _tray = new TrayIcon { Icon = new WindowIcon(stream), ToolTipText = "Easy Screenshots · Ctrl+Shift+4 / Win+Shift+4", Menu = menu, IsVisible = true };
+        _tray = new TrayIcon { Icon = AppIcon.Default, ToolTipText = "Easy Screenshots · Ctrl+Shift+4 / Win+Shift+4", Menu = menu, IsVisible = true };
         _tray.Clicked += (_, _) => ShowHome();
         TrayIcon.SetIcons(this, new TrayIcons { _tray });
     }
@@ -108,7 +98,7 @@ public sealed class App : Application
         captures.Click += (_, _) => ShowCapturePicker();
         stack.Children.Add(captures);
         stack.Children.Add(new TextBlock { Text = "Drag to select · Escape to cancel\nEdit with arrows, text, shapes, pen and blur.\nCtrl+S to save · Drag image to share a PNG.", Foreground = Brushes.Gray, LineHeight = 24 });
-        _home = new Window { Title = "Easy Screenshots", Width = 500, Height = 580, CanResize = false, Content = new ScrollViewer { Content = stack }, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        _home = new Window { Icon = AppIcon.Default, Title = "Easy Screenshots", Width = 500, Height = 580, CanResize = false, Content = new ScrollViewer { Content = stack }, WindowStartupLocation = WindowStartupLocation.CenterScreen };
         AttachLifetime(_home); _home.Show();
     }
 
@@ -213,7 +203,7 @@ public sealed class App : Application
             catch (Exception ex) { status.Text = "Could not save options: " + ex.Message; }
             finally { save.IsEnabled = true; }
         };
-        _options = new Window { Title = "Easy Screenshots · Options", Width = 520, Height = 650, Content = new ScrollViewer { Content = panel }, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        _options = new Window { Icon = AppIcon.Default, Title = "Easy Screenshots · Options", Width = 520, Height = 650, Content = new ScrollViewer { Content = panel }, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterScreen };
         _options.Closed += (_, _) => _options = null;
         AttachLifetime(_options); _options.Show();
     }
@@ -256,7 +246,7 @@ public sealed class App : Application
 
     private static void ShowMessage(string title, string message)
     {
-        var window = new Window { Title = title, Width = 520, Height = 240, Content = new TextBlock { Text = message, Margin = new Thickness(24), TextWrapping = TextWrapping.Wrap } };
+        var window = new Window { Icon = AppIcon.Default, Title = title, Width = 520, Height = 240, Content = new TextBlock { Text = message, Margin = new Thickness(24), TextWrapping = TextWrapping.Wrap } };
         window.Show();
     }
 

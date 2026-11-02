@@ -31,6 +31,7 @@ public sealed class EditorWindow : Window
 
     public EditorWindow(byte[] png, Action requestCapture, Action requestOptions)
     {
+        Icon = AppIcon.Default;
         _document = new EditorDocument(png);
         _surface = new AnnotationSurface(_document);
         Title = "Easy Screenshots";

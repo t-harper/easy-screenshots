@@ -30,6 +30,7 @@ public sealed class CapturePickerWindow : Window
 
     public CapturePickerWindow(IReadOnlyList<CapturePickerItem> items, Action? clearCaptures = null)
     {
+        Icon = AppIcon.Default;
         ArgumentNullException.ThrowIfNull(items);
         _clearCaptures = clearCaptures;
         _hasCaptures = items.Count > 0;

@@ -107,6 +107,7 @@ public sealed class CaptureCoordinator
         public SelectionSurface Surface { get; }
         public SelectionWindow(DesktopSnapshot snapshot, Bitmap bitmap, PixelRect monitor, SelectionState state)
         {
+            Icon = AppIcon.Default;
             Title = "Easy Screenshots · Select region";
             SystemDecorations = SystemDecorations.None;
             CanResize = false;
